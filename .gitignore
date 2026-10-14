@@ -1,0 +1,8 @@
+# everything the tool writes: candidates, contact sheets, gallery, manifest, TV pairing token
+data/
+.env
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+.pytest_cache/
