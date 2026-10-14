@@ -69,6 +69,24 @@ uv run frame-fill --keep
 Remove one piece: `frame-curate drop <n>` then `frame-fill` (clear + re-upload), or delete its content_id with
 `FrameTV(host).delete([...])` using the manifest.
 
+## One piece a day
+
+The Frame's own auto-rotation is a relative timer (every N minutes since it was switched on) and cannot be anchored
+to a time of day. `frame-rotate` is the alternative: run it from launchd or cron at midnight and it shows the next
+piece from a persisted shuffle of the manifest. If somebody picked a piece with the remote, that piece stays for the
+rest of the day and the next day (the first midnight after a manual change is skipped). `--dry-run` explains what it
+would do; `--now` rotates immediately.
+
+```bash
+uv run frame-rotate --dry-run
+# cron (Linux / a Pi):
+0 0 * * *  cd /path/to/frame-curator && /path/to/uv run frame-rotate >> data/frame_rotate.log 2>&1
+```
+
+macOS launchd (`~/Library/LaunchAgents/com.example.frame-rotate.plist`): `ProgramArguments` = `uv run --directory
+/path/to/frame-curator frame-rotate`, `StartCalendarInterval` = `{Hour: 0, Minute: 0}`, `RunAtLoad` = false, then
+`launchctl bootstrap gui/$(id -u) <plist>`. Keep the TV's own rotation off so the piece holds all day.
+
 ## The rules the gates encode
 
 See [docs/curation-rules.md](docs/curation-rules.md). In short: allowed are Monet gardens and water lilies,
@@ -102,6 +120,7 @@ frame_curator/art.py      sources, gates, mat + plaque rendering, FrameTV contro
 frame_curator/curate.py   harvest / named / sheets / trim / pick / drop / status
 frame_curator/fill.py     upload the approved gallery, keep the manifest
 frame_curator/setup.py    one-time pairing + starter set
+frame_curator/rotate.py   one piece a day at midnight, with a two-day hold after a manual pick
 lists/americana.json      an example named list (history, Hudson River School, the West, Currier & Ives)
 data/                     (git-ignored) candidates, sheets, gallery, manifest, pairing token
 ```

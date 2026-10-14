@@ -24,6 +24,7 @@ dependencies = [
 frame-curate = "frame_curator.curate:main"
 frame-fill = "frame_curator.fill:main"
 frame-setup = "frame_curator.setup:main"
+frame-rotate = "frame_curator.rotate:main"
 
 [project.urls]
 Homepage = "https://github.com/jaselton/frame-curator"
