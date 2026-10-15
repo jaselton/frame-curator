@@ -75,7 +75,12 @@ The Frame's own auto-rotation is a relative timer (every N minutes since it was 
 to a time of day. `frame-rotate` is the alternative: run it from launchd or cron at midnight and it shows the next
 piece from a persisted shuffle of the manifest. If somebody picked a piece with the remote, that piece stays for the
 rest of the day and the next day (the first midnight after a manual change is skipped). `--dry-run` explains what it
-would do; `--now` rotates immediately.
+would do; `--now` rotates immediately; `--date YYYY-MM-DD` pretends it is another day for testing.
+
+A **picture-study term** overrides everything: put `collections/picture_study.json` in the data dir with
+`{"pieces": [{"ref": "cma:125013", "from": "2026-10-19", "to": "2026-11-01"}, ...]}` and the scheduled piece holds the
+wall for its whole window, weekends included, outranking both the daily rotation and the manual hold. Nothing else
+advances while it is up.
 
 ```bash
 uv run frame-rotate --dry-run

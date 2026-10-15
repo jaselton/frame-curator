@@ -68,6 +68,28 @@ def sync_order(state: dict, ids: list[str]) -> None:
     _ = played
 
 
+PICTURE_STUDY = STATE.parent / "collections" / "picture_study.json"
+
+
+def picture_study_piece(manifest: dict, today: str | None = None) -> str | None:
+    """content_id scheduled for today by collections/picture_study.json, or None outside a term."""
+    try:
+        ps = json.loads(PICTURE_STUDY.read_text())
+    except Exception:
+        return None
+    today = today or dt.date.today().isoformat()
+    for p in ps.get("pieces", []):
+        if p.get("from", "9999") <= today <= p.get("to", "0000"):
+            cid = p.get("content_id")
+            if cid in manifest:
+                return cid
+            # content ids change when the TV is cleared; fall back to the ref
+            for k, v in manifest.items():
+                if v.get("ref") == p.get("ref"):
+                    return k
+    return None
+
+
 def current_on_tv(fr) -> str | None:
     try:
         cur = fr._call(lambda a: a.get_current(), tries=2) or {}
@@ -80,6 +102,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--now", action="store_true", help="rotate immediately, ignoring a manual hold")
+    p.add_argument("--date", help="pretend today is YYYY-MM-DD (for testing the picture-study schedule)")
     p.add_argument("host", nargs="?", default=os.getenv("FRAME_TV_HOST", ""))
     a = p.parse_args()
     host, mac = a.host.strip(), (os.getenv("FRAME_TV_MAC") or None)
@@ -106,6 +129,23 @@ def main() -> None:
 
     title = lambda c: f"{manifest.get(c, {}).get('artist', '?')} — {manifest.get(c, {}).get('title', c)}"
     log(f"on the TV now: {cur} ({title(cur)}); last set by us: {state.get('last_set')}")
+
+    # Picture study: during a term the scheduled piece holds the wall for its whole window (weekends included) and
+    # outranks both the daily rotation and the two-day manual hold. Nothing else advances while it is up.
+    ps = picture_study_piece(manifest, a.date)
+    if ps and not a.now:
+        if cur == ps:
+            log(f"picture study: {title(ps)} stays up"); save_state(state); return
+        log(f"picture study: showing {title(ps)}" + ("  DRY RUN" if a.dry_run else ""))
+        if a.dry_run:
+            return
+        try:
+            fr.select(ps)
+        except Exception as e:
+            log(f"select failed: {type(e).__name__}: {e}"); save_state(state); return
+        state["last_set"] = ps; state["manual_hold"], state["hold_skipped"] = None, False
+        state.setdefault("history", []).append({"at": dt.datetime.now().isoformat(timespec="seconds"), "content_id": ps, "reason": "picture_study"})
+        save_state(state); log("done"); return
 
     manual = cur != state.get("last_set") and cur in manifest
     if manual and not a.now:
